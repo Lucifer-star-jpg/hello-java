@@ -14,6 +14,7 @@ public class DemoApplication {
 
     @GetMapping("/")
     public String hello() {
+        return "👋 Hello from Dockerized Java Spring Boot!1";
     }
 }
 
