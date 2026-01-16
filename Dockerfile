@@ -1,15 +1,11 @@
-# Use official OpenJDK base image
-FROM openjdk:17-jdk-slim
+FROM eclipse-temurin:17-jre-jammy
 
-# Set working directory inside container
 WORKDIR /app
 
-# Copy the JAR file built by Maven
-COPY target/demo-1.0.0.jar app.jar
+COPY target/*.jar app.jar
 
-# Expose port your app listens on (optional)
 EXPOSE 8080
 
-# Run the app
-CMD ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java","-jar","app.jar"]
+
 
