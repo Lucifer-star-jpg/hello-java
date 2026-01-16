@@ -14,6 +14,8 @@ public class DemoApplication {
 
     @GetMapping("/")
     public String hello() {
+        return "Hello from Spring Boot running in Jenkins + Docker + Kubernetes!";
     }
 }
+
 
