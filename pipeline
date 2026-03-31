@@ -1,0 +1,125 @@
+eksctl create cluster \
+  --name my-cluster \
+  --region us-east-1 \
+  --nodegroup-name my-nodes \
+  --node-type t2.medium \
+  --nodes 2 \
+  --nodes-min 1 \
+  --nodes-max 3 \
+  --managed
+
+
+userdata :- 
+
+#!/bin/bash
+sudo yum install java-17* -y
+sudo wget -O /etc/yum.repos.d/jenkins.repo \
+    https://pkg.jenkins.io/redhat-stable/jenkins.repo
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+sudo yum install jenkins -y
+sudo systemctl start jenkins
+sudo yum install git -y
+sudo yum install docker -y
+sudo systemctl start docker
+sudo yum install maven -y
+sudo systemctl restart jenkins
+
+
+after installation :- 
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod 777 kubectl
+cp kubectl /usr/local/bin/kubectl
+cp kubectl /usr/local/bin/k
+sudo usermod -aG wheel jenkins
+sudo usermod -aG docker jenkins
+sudo usermod -s /bin/bash jenkins
+
+
+aws eks --region us-east-1 update-kubeconfig --name my-cluster
+
+
+
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'mythical45/neww'
+        CONTAINER_PORT = '8080'
+        HOST_PORT = '5006'
+    }
+
+    stages {
+        stage('Git Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/Lucifer-star-jpg/hello-java.git'
+            }
+        }
+
+        stage('Maven Build') {
+            steps {
+                sh 'mvn clean package'
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh "docker build -t ${IMAGE_NAME} ."
+            }
+        }
+
+        stage('Docker Run') {
+            steps {
+                sh "docker run -d -p ${HOST_PORT}:${CONTAINER_PORT} ${IMAGE_NAME}"
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                sh "docker push ${IMAGE_NAME}"
+            }
+        }
+
+        stage('Configure Kubeconfig') {
+            steps {
+                sh 'aws eks --region us-east-1 update-kubeconfig --name my-cluster'
+            }
+        }
+
+        stage('Kubernetes Deployment') {
+            steps {
+                sh 'kubectl apply -f Deployment.yaml'
+            }
+        }
+
+        stage('Show Service Info') {
+            steps {
+                script {
+                    echo 'Fetching Kubernetes service external IP and port...'
+                    sh '''
+                    echo "Service Info:"
+                    kubectl get svc java-app-service -o wide
+                    '''
+                }
+            }
+        }
+
+        stage('Show all IPs') {
+            steps {
+                script {
+                    echo 'Fetching instance names and public IPs...'
+                    sh '''
+                    aws ec2 describe-instances \
+                    --query "Reservations[*].Instances[*].{Name: Tags[?Key=='Name'] | [0].Value, PublicIP: PublicIpAddress}" \
+                    --output table
+                    '''
+                }
+            }
+        }
+    }
+}
+
+
+
+
+
+eksctl delete cluster --name my-cluster --region us-east-1
